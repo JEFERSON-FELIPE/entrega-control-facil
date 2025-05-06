@@ -9,7 +9,108 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      delivery_entries: {
+        Row: {
+          created_at: string
+          date: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          date?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      delivery_items: {
+        Row: {
+          entry_id: string
+          id: string
+          quantity: number
+          type_id: string
+          value: number | null
+        }
+        Insert: {
+          entry_id: string
+          id?: string
+          quantity: number
+          type_id: string
+          value?: number | null
+        }
+        Update: {
+          entry_id?: string
+          id?: string
+          quantity?: number
+          type_id?: string
+          value?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "delivery_items_entry_id_fkey"
+            columns: ["entry_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "delivery_items_type_id_fkey"
+            columns: ["type_id"]
+            isOneToOne: false
+            referencedRelation: "delivery_types"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      delivery_types: {
+        Row: {
+          id: string
+          is_extra: boolean
+          name: string
+          value: number
+        }
+        Insert: {
+          id?: string
+          is_extra?: boolean
+          name: string
+          value: number
+        }
+        Update: {
+          id?: string
+          is_extra?: boolean
+          name?: string
+          value?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          role: string
+        }
+        Insert: {
+          created_at?: string
+          id: string
+          name: string
+          role: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          role?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
