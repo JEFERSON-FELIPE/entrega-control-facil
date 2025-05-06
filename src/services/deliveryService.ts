@@ -1,7 +1,7 @@
-
 import { DeliveryEntry, DeliveryType, DeliverySummary, User } from "../types";
 import { format, parse, isWithinInterval } from "date-fns";
 import { supabase } from "../integrations/supabase/client";
+import { mapDbDeliveryTypeToAppType, mapDbProfileToUser } from "../types/supabase-extended";
 
 // Mock database with predefined delivery types
 const DELIVERY_TYPES: DeliveryType[] = [
@@ -80,12 +80,7 @@ export const getDeliveryTypes = async (): Promise<DeliveryType[]> => {
     
     if (error) throw error;
     
-    return data.map(type => ({
-      id: type.id,
-      name: type.name,
-      value: type.value,
-      isExtra: type.is_extra
-    }));
+    return data.map(mapDbDeliveryTypeToAppType);
   } catch (error) {
     console.error('Error fetching delivery types:', error);
     return DELIVERY_TYPES;
@@ -237,12 +232,7 @@ export const getDeliveryUsers = async (): Promise<User[]> => {
     
     if (error) throw error;
     
-    return data.map(profile => ({
-      id: profile.id,
-      email: '',  // Email is not stored in profile
-      name: profile.name,
-      role: profile.role as 'deliverer' | 'manager'
-    }));
+    return data.map(mapDbProfileToUser);
   } catch (error) {
     console.error('Error fetching delivery users:', error);
     return MOCK_USERS.filter(user => user.role === "deliverer");

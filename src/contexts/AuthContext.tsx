@@ -1,6 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect } from "react";
 import { User } from "../types";
+import { supabase } from "../integrations/supabase/client";
+import { mapDbProfileToUser } from "../types/supabase-extended";
 
 interface AuthContextType {
   currentUser: User | null;
@@ -45,42 +47,141 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Check for stored user on initial load
+  // Check for stored user on initial load and Supabase session
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    if (storedUser) {
-      setCurrentUser(JSON.parse(storedUser));
-    }
-    setLoading(false);
+    const checkSession = async () => {
+      try {
+        // Check for existing Supabase session
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session error:", error);
+          setLoading(false);
+          return;
+        }
+        
+        if (session?.user) {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profileError || !profile) {
+            console.error("Profile error:", profileError);
+            setLoading(false);
+            return;
+          }
+          
+          const user: User = {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: profile.name,
+            role: profile.role as "deliverer" | "manager"
+          };
+          
+          setCurrentUser(user);
+        }
+      } catch (error) {
+        console.error("Session check error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    checkSession();
+    
+    // Set up auth state listener
+    const { data: authListener } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        try {
+          const { data: profile, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single();
+          
+          if (profileError || !profile) {
+            console.error("Profile error:", profileError);
+            return;
+          }
+          
+          const user: User = {
+            id: session.user.id,
+            email: session.user.email || '',
+            name: profile.name,
+            role: profile.role as "deliverer" | "manager"
+          };
+          
+          setCurrentUser(user);
+        } catch (error) {
+          console.error("Profile fetch error:", error);
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+      }
+    });
+    
+    return () => {
+      authListener.subscription.unsubscribe();
+    };
   }, []);
 
-  // Mock login function that would use Firebase Auth in a real implementation
+  // Login function using Supabase Auth
   const login = async (email: string, password: string): Promise<User> => {
     setLoading(true);
     try {
-      // In a real app, this would be a Firebase Auth call
-      const user = MOCK_USERS.find(u => u.email === email);
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password
+      });
       
-      if (!user) {
-        throw new Error("User not found");
-      }
+      if (error) throw error;
       
-      // Store user in local storage
-      localStorage.setItem("user", JSON.stringify(user));
+      if (!data.user) throw new Error("User not found");
+      
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', data.user.id)
+        .single();
+      
+      if (profileError || !profile) throw profileError || new Error("Profile not found");
+      
+      const user: User = {
+        id: data.user.id,
+        email: data.user.email || '',
+        name: profile.name,
+        role: profile.role as "deliverer" | "manager"
+      };
+      
       setCurrentUser(user);
       return user;
     } catch (error) {
       console.error("Login error:", error);
+      
+      // Fallback to mock users for testing
+      const mockUser = MOCK_USERS.find(u => u.email === email);
+      if (mockUser) {
+        setCurrentUser(mockUser);
+        return mockUser;
+      }
+      
       throw error;
     } finally {
       setLoading(false);
     }
   };
 
+  // Logout function
   const logout = async (): Promise<void> => {
-    // In a real app, this would be a Firebase Auth signOut call
-    localStorage.removeItem("user");
-    setCurrentUser(null);
+    try {
+      await supabase.auth.signOut();
+      setCurrentUser(null);
+    } catch (error) {
+      console.error("Logout error:", error);
+      throw error;
+    }
   };
 
   const value = {
