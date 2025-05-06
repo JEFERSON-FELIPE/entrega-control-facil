@@ -1,5 +1,6 @@
 
 import type { Database } from "../integrations/supabase/types";
+import { DeliveryType, User } from "../types";
 
 // Type helpers for Supabase tables
 export type DbDeliveryType = Database["public"]["Tables"]["delivery_types"]["Row"];
